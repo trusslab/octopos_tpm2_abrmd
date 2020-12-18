@@ -154,3 +154,17 @@ tcti_receive (Tcti      *self,
 
     return rc;
 }
+TSS2_RC
+tcti_set_locality (Tcti            *self,
+                   uint8_t          locality)
+{
+    TSS2_RC rc;
+
+    rc = Tss2_Tcti_SetLocality (self->tcti_context,
+                                locality);
+    if (rc != TSS2_RC_SUCCESS) {
+        RC_WARN ("tcti_set_locality", rc);
+    }
+
+    return rc;
+}

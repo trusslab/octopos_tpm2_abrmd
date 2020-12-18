@@ -1379,6 +1379,7 @@ resource_manager_process_control (ResourceManager *resmgr,
 {
     ControlCode code = control_message_get_code (msg);
     Connection *conn;
+    GValue     *locality;
 
     g_debug ("%s", __func__);
     switch (code) {
@@ -1390,6 +1391,12 @@ resource_manager_process_control (ResourceManager *resmgr,
         g_debug ("%s: received CONNECTION_REMOVED message for connection",
                  __func__);
         resource_manager_remove_connection (resmgr, conn);
+        sink_enqueue (resmgr->sink, G_OBJECT (msg));
+        return TRUE;
+    case SET_LOCALITY:
+        locality = (GValue *) (control_message_get_object (msg));
+        guint8 locality_value = g_value_get_uint (locality);
+        resource_manager_set_locality (resmgr, locality_value);
         sink_enqueue (resmgr->sink, G_OBJECT (msg));
         return TRUE;
     default:
@@ -1741,6 +1748,18 @@ resource_manager_remove_connection (ResourceManager *resource_manager,
     session_list_foreach (resource_manager->session_list,
                           connection_close_session_callback,
                           &connection_close_data);
+    g_debug ("%s: done", __func__);
+}
+
+void
+resource_manager_set_locality (ResourceManager *resource_manager,
+                               guint8 locality)
+{
+    Tpm2 *tpm2 = resource_manager->tpm2;
+    tpm2_lock(tpm2);
+    tpm2_set_locality(tpm2, locality);
+    tpm2_unlock(tpm2);
+    
     g_debug ("%s: done", __func__);
 }
 /**

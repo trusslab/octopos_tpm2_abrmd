@@ -15,6 +15,7 @@ G_BEGIN_DECLS
 typedef enum {
     CHECK_CANCEL    = 1 << 0,
     CONNECTION_REMOVED = 1 << 1,
+    SET_LOCALITY    = 1 << 2
 } ControlCode;
 
 typedef struct _ControlMessageClass {

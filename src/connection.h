@@ -23,6 +23,9 @@ typedef struct _Connection {
     GIOStream          *iostream;
     guint64             id;
     HandleMap          *transient_handle_map;
+    
+    GIOStream          *control_cstream;
+    GIOStream          *control_sstream;
 } Connection;
 
 #define TYPE_CONNECTION              (connection_get_type ())
@@ -35,9 +38,13 @@ typedef struct _Connection {
 GType            connection_get_type     (void);
 Connection*      connection_new          (GIOStream       *iostream,
                                           guint64          id,
-                                          HandleMap       *transient_handle_map);
+                                          HandleMap       *transient_handle_map,
+                                          GIOStream       *control_cstream,
+                                          GIOStream       *control_sstream);
 gpointer         connection_key_istream  (Connection      *session);
 gpointer         connection_key_id       (Connection      *session);
 GIOStream*       connection_get_iostream (Connection      *connection);
 HandleMap*       connection_get_trans_map(Connection      *session);
+GIOStream*       connection_get_control_cstream (Connection      *connection);
+GIOStream*       connection_get_control_sstream (Connection      *connection);
 #endif /* CONNECTION_H */

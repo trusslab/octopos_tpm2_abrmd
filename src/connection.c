@@ -21,6 +21,8 @@ enum {
     PROP_ID,
     PROP_IO_STREAM,
     PROP_TRANSIENT_HANDLE_MAP,
+    PROP_CONTROL_CSTREAM,
+    PROP_CONTROL_SSTREAM,
     N_PROPERTIES
 };
 static GParamSpec *obj_properties [N_PROPERTIES] = { NULL, };
@@ -48,6 +50,14 @@ connection_set_property (GObject       *object,
         g_object_ref (self->transient_handle_map);
         g_debug ("%s: set transient_handle_map", __func__);
         break;
+    case PROP_CONTROL_CSTREAM:
+        self->control_cstream = G_IO_STREAM (g_value_dup_object (value));
+        g_debug ("%s: set control client socket", __func__);
+        break;
+    case PROP_CONTROL_SSTREAM:
+        self->control_sstream = G_IO_STREAM (g_value_dup_object (value));
+        g_debug ("%s: set control server socket", __func__);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -72,6 +82,12 @@ connection_get_property (GObject     *object,
     case PROP_TRANSIENT_HANDLE_MAP:
         g_value_set_object (value, self->transient_handle_map);
         break;
+    case PROP_CONTROL_CSTREAM:
+        g_value_set_object (value, self->control_cstream);
+        break;
+    case PROP_CONTROL_SSTREAM:
+        g_value_set_object (value, self->control_sstream);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -94,6 +110,8 @@ connection_dispose (GObject *obj)
     Connection *connection = CONNECTION (obj);
 
     g_clear_object (&connection->iostream);
+    g_clear_object (&connection->control_cstream);
+    g_clear_object (&connection->control_sstream);
     g_object_unref (connection->transient_handle_map);
 
     G_OBJECT_CLASS (connection_parent_class)->dispose (obj);
@@ -132,6 +150,18 @@ connection_class_init (ConnectionClass *klass)
                              "HandleMap object to map handles to transient object contexts",
                              G_TYPE_OBJECT,
                              G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+    obj_properties [PROP_CONTROL_CSTREAM] =
+        g_param_spec_object ("control_cstream",
+                             "ControlClientStream",
+                             "Reference to Control GIOStream",
+                             G_TYPE_IO_STREAM,
+                             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
+    obj_properties [PROP_CONTROL_SSTREAM] =
+        g_param_spec_object ("control_sstream",
+                             "ControlServerStream",
+                             "Reference to Control GIOStream",
+                             G_TYPE_IO_STREAM,
+                             G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY);
     g_object_class_install_properties (object_class,
                                        N_PROPERTIES,
                                        obj_properties);
@@ -144,12 +174,16 @@ connection_class_init (ConnectionClass *klass)
 Connection*
 connection_new (GIOStream  *iostream,
                 guint64     id,
-                HandleMap  *transient_handle_map)
+                HandleMap  *transient_handle_map,
+                GIOStream       *control_cstream,
+                GIOStream       *control_sstream)
 {
     return CONNECTION (g_object_new (TYPE_CONNECTION,
                                      "id", id,
                                      "iostream", iostream,
                                      "transient-handle-map", transient_handle_map,
+                                     "control_cstream", control_cstream,
+                                     "control_sstream", control_sstream,
                                      NULL));
 }
 
@@ -163,6 +197,18 @@ GIOStream*
 connection_get_iostream (Connection *connection)
 {
     return connection->iostream;
+}
+
+GIOStream*
+connection_get_control_cstream (Connection *connection)
+{
+    return connection->control_cstream;
+}
+
+GIOStream*
+connection_get_control_sstream (Connection *connection)
+{
+    return connection->control_sstream;
 }
 
 gpointer

@@ -229,6 +229,31 @@ fail_out:
     g_hash_table_remove (data->self->istream_to_source_data_map, istream);
     return G_SOURCE_REMOVE;
 }
+
+gboolean
+control_command_process (GInputStream *istream,
+                         gpointer      user_data)
+{
+    source_data_t *data = (source_data_t*)user_data;
+    uint8_t buf[1];
+    GError *error = NULL;
+    GValue  locality = G_VALUE_INIT;
+    GValue *plocality = &locality;
+
+    g_debug (__func__);
+    g_input_stream_read (istream, buf, 1, NULL, &error);
+    g_value_init (plocality, G_TYPE_UINT);
+    g_value_set_uint (plocality, buf[0]);
+
+    ControlMessage *msg =
+        control_message_new_with_object (SET_LOCALITY,
+                                         G_OBJECT (plocality));
+
+    sink_enqueue (data->self->sink, G_OBJECT (msg));
+    g_object_unref (msg);
+    
+    return G_SOURCE_CONTINUE;
+}
 /*
  * This is a callback function invoked by the ConnectionManager when a new
  * Connection object is added to it. It creates and sets up the GIO
@@ -239,9 +264,9 @@ command_source_on_new_connection (ConnectionManager   *connection_manager,
                                   Connection          *connection,
                                   CommandSource       *self)
 {
-    GIOStream *iostream;
-    GPollableInputStream *istream;
-    source_data_t *data;
+    GIOStream *iostream, *control_sstream;
+    GPollableInputStream *istream, *control_sistream;
+    source_data_t *data, *control_data;
     UNUSED_PARAM(connection_manager);
 
     g_info ("%s: adding new connection", __func__);
@@ -269,6 +294,20 @@ command_source_on_new_connection (ConnectionManager   *connection_manager,
      * the reference to the istream and the source_data_t pointer.
      */
     g_hash_table_insert (self->istream_to_source_data_map, istream, data);
+
+    control_sstream = connection_get_control_sstream (connection);
+    control_sistream = G_POLLABLE_INPUT_STREAM (g_io_stream_get_input_stream (control_sstream));
+    g_object_ref (control_sistream);
+    control_data = g_malloc0 (sizeof (source_data_t));
+    control_data->cancellable = g_cancellable_new ();
+    control_data->source = g_pollable_input_stream_create_source (control_sistream,
+                                                                  control_data->cancellable);
+    g_source_attach (control_data->source, self->main_context);
+    control_data->self = self;
+    g_source_set_callback (control_data->source,
+                           G_SOURCE_FUNC (control_command_process),
+                           control_data,
+                           NULL);
 
     return 0;
 }

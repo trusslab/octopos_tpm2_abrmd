@@ -67,6 +67,7 @@ TSS2_RC tpm2_flush_all_unlocked (Tpm2 *tpm2,
                                  TPM2_RH first,
                                  TPM2_RH last);
 TSS2_RC tpm2_get_command_attrs (Tpm2 *tpm2, UINT32 *count, TPMA_CC **attrs);
+TSS2_RC tpm2_set_locality (Tpm2 *tpm2, uint8_t locality);
 
 G_END_DECLS
 
