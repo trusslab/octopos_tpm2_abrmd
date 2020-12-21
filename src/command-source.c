@@ -235,22 +235,28 @@ control_command_process (GInputStream *istream,
                          gpointer      user_data)
 {
     source_data_t *data = (source_data_t*)user_data;
+    Connection    *connection;
     uint8_t buf[1];
     GError *error = NULL;
-    GValue  locality = G_VALUE_INIT;
-    GValue *plocality = &locality;
 
     g_debug (__func__);
+    connection =
+        connection_manager_lookup_sistream (data->self->connection_manager,
+                                            istream);
+    if (connection == NULL) {
+        g_error ("%s: failed to get connection associated with sistream",
+                 __func__);
+    }
+    
     g_input_stream_read (istream, buf, 1, NULL, &error);
-    g_value_init (plocality, G_TYPE_UINT);
-    g_value_set_uint (plocality, buf[0]);
+    guint8 locality = buf[0];
 
     ControlMessage *msg =
-        control_message_new_with_object (SET_LOCALITY,
-                                         G_OBJECT (plocality));
+        control_message_new_with_locality (SET_LOCALITY, G_OBJECT (connection), locality);
 
     sink_enqueue (data->self->sink, G_OBJECT (msg));
     g_object_unref (msg);
+    g_object_unref (connection);
     
     return G_SOURCE_CONTINUE;
 }

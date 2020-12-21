@@ -211,10 +211,6 @@ response_sink_process_control (ResponseSink *sink,
         g_debug ("%s: Received CONNECTION_REMOVED message, nothing to do.",
                  __func__);
         return TRUE;
-    case SET_LOCALITY:
-        g_debug ("%s: Received SET_LOCALITY message, waiting to know.",
-                 __func__);
-        return TRUE;
     default:
         g_warning ("%s: Unknown control code: %d ... ignoring",
                    __func__, code);

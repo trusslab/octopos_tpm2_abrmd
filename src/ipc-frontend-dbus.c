@@ -529,6 +529,12 @@ on_handle_set_locality (TctiTabrmd            *skeleton,
     uint8_t msg[1] = { locality };
     write_all (ostream, msg, sizeof(msg));
 
+    GVariant *response_variants[1], *response_tuple;
+    response_variants[0] = g_variant_new_uint32 (TPM2_RC_SUCCESS);
+    response_tuple = g_variant_new_tuple (response_variants, 1);
+    g_dbus_method_invocation_return_value (invocation,
+                                           response_tuple);
+
     g_object_unref (connection);
 
     return TRUE;

@@ -55,6 +55,25 @@ control_message_new_with_object (ControlCode code,
     msg = CONTROL_MESSAGE (g_object_new (TYPE_CONTROL_MESSAGE, NULL));
     msg->code = code;
     msg->object = obj;
+    msg->locality = G_MAXUINT8;
+
+    return msg;
+}
+
+ControlMessage*
+control_message_new_with_locality (ControlCode code,
+                                   GObject *obj,
+                                   guint8 locality)
+{
+    ControlMessage *msg;
+
+    if (obj != NULL) {
+        g_object_ref (obj);
+    }
+    msg = CONTROL_MESSAGE (g_object_new (TYPE_CONTROL_MESSAGE, NULL));
+    msg->code = code;
+    msg->object = obj;
+    msg->locality = locality;
 
     return msg;
 }
@@ -78,4 +97,9 @@ GObject*
 control_message_get_object (ControlMessage *msg)
 {
     return msg->object;
+}
+guint8
+control_message_get_locality (ControlMessage *msg)
+{
+    return msg->locality;
 }

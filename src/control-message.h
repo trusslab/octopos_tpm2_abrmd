@@ -26,6 +26,7 @@ typedef struct _ControlMessage
 {
     GObject          parent_instance;
     ControlCode      code;
+    guint8           locality;
     GObject         *object;
 } ControlMessage;
 
@@ -41,8 +42,12 @@ GType control_message_get_type (void);
 ControlMessage*    control_message_new    (ControlCode code);
 ControlMessage*    control_message_new_with_object (ControlCode code,
                                                     GObject *obj);
+ControlMessage*    control_message_new_with_locality (ControlCode code,
+                                                      GObject *obj,
+                                                      guint8 locality);
 ControlCode        control_message_get_code (ControlMessage *msg);
 GObject*           control_message_get_object (ControlMessage* msg);
+guint8             control_message_get_locality (ControlMessage *msg);
 
 G_END_DECLS
 #endif /* CONTROL_MESSAGE_H */

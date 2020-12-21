@@ -1377,9 +1377,9 @@ gboolean
 resource_manager_process_control (ResourceManager *resmgr,
                                   ControlMessage *msg)
 {
-    ControlCode code = control_message_get_code (msg);
-    Connection *conn;
-    GValue     *locality;
+    ControlCode   code = control_message_get_code (msg);
+    Connection   *conn;
+    guint8        locality;
 
     g_debug ("%s", __func__);
     switch (code) {
@@ -1394,10 +1394,14 @@ resource_manager_process_control (ResourceManager *resmgr,
         sink_enqueue (resmgr->sink, G_OBJECT (msg));
         return TRUE;
     case SET_LOCALITY:
-        locality = (GValue *) (control_message_get_object (msg));
-        guint8 locality_value = g_value_get_uint (locality);
-        resource_manager_set_locality (resmgr, locality_value);
-        sink_enqueue (resmgr->sink, G_OBJECT (msg));
+        conn = CONNECTION (control_message_get_object (msg));
+        locality = control_message_get_locality (msg);
+        g_debug ("%s: received SET_LOCALITY message for connection",
+                 __func__);
+        resource_manager_set_locality (resmgr, locality);
+        Tpm2Response *response = tpm2_response_new_rc (conn, TPM2_RC_SUCCESS);
+        sink_enqueue (resmgr->sink, G_OBJECT (response));
+        g_object_unref (response);
         return TRUE;
     default:
         g_warning ("%s: Unknown control code: %d ... ignoring",
