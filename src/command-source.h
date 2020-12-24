@@ -33,6 +33,7 @@ typedef struct _CommandSource {
     GMainContext      *main_context;
     GMainLoop         *main_loop;
     GHashTable        *istream_to_source_data_map;
+    GHashTable        *control_to_source_data_map;
     Sink              *sink;
 } CommandSource;
 

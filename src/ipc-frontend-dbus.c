@@ -345,7 +345,7 @@ on_handle_create_connection (TctiTabrmd            *skeleton,
     HandleMap   *handle_map = NULL;
     Connection *connection = NULL;
     gint client_fd = 0, ret = 0, control_fd = 0;
-    GIOStream *iostream, *control_cstream, *control_sstream;
+    GIOStream *iostream, *control_client_stream, *control_server_stream;
     GVariant *response_variants[2], *response_tuple;
     GUnixFDList *fd_list = NULL;
     guint64 id = 0, id_pid_mix = 0;
@@ -384,15 +384,22 @@ on_handle_create_connection (TctiTabrmd            *skeleton,
     if (handle_map == NULL)
         g_error ("Failed to allocate new HandleMap");
     iostream = create_connection_iostream (&client_fd);
-    control_sstream = create_connection_iostream (&control_fd);
-    GSocket *csock = g_socket_new_from_fd (control_fd, NULL);
-    control_cstream = G_IO_STREAM (g_socket_connection_factory_create_connection (csock));
-    connection = connection_new (iostream, id_pid_mix, handle_map, control_cstream, control_sstream);
+    /* 
+     * FD list is returned to invoker.
+     * To trigger callback in resource-manager,
+     * create a standalone client and server control stream.
+     */
+    control_server_stream = create_connection_iostream (&control_fd);
+    GSocket *control_client_sock = g_socket_new_from_fd (control_fd, NULL);
+    control_client_stream = \
+        G_IO_STREAM (g_socket_connection_factory_create_connection (control_client_sock));
+    connection = connection_new (iostream, id_pid_mix, handle_map, 
+                                 control_client_stream, control_server_stream);
     g_object_unref (handle_map);
     g_object_unref (iostream);
-    g_object_unref (csock);
-    g_object_unref (control_sstream);
-    g_object_unref (control_cstream);
+    g_object_unref (control_client_sock);
+    g_object_unref (control_client_stream);
+    g_object_unref (control_server_stream);
     if (connection == NULL)
         g_error ("Failed to allocate new connection.");
     g_debug ("Created connection with client FD: %d and id: 0x%" PRIx64,
@@ -498,6 +505,8 @@ on_handle_set_locality (TctiTabrmd            *skeleton,
 {
     IpcFrontendDbus *self = IPC_FRONTEND_DBUS (user_data);
     Connection *connection = NULL;
+    GOutputStream *ostream;
+    GVariant *response_variants[1], *response_tuple;
     guint64   id_pid_mix = 0;
     gboolean mix_ret = FALSE;
     UNUSED_PARAM(skeleton);
@@ -523,13 +532,11 @@ on_handle_set_locality (TctiTabrmd            *skeleton,
         return TRUE;
     }
     /* set locality for an existing connection */
-    GIOStream *control_cstream = connection_get_control_cstream (connection);
-    GOutputStream *ostream = g_io_stream_get_output_stream (control_cstream);
-    
-    uint8_t msg[1] = { locality };
+    uint8_t msg[] = { locality };
+    ostream = \
+        g_io_stream_get_output_stream (connection_get_control_cstream (connection));
     write_all (ostream, msg, sizeof(msg));
-
-    GVariant *response_variants[1], *response_tuple;
+    /* create TPM2_RC_SUCCESS response */
     response_variants[0] = g_variant_new_uint32 (TPM2_RC_SUCCESS);
     response_tuple = g_variant_new_tuple (response_variants, 1);
     g_dbus_method_invocation_return_value (invocation,
