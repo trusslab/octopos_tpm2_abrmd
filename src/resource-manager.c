@@ -1399,9 +1399,6 @@ resource_manager_process_control (ResourceManager *resmgr,
         g_debug ("%s: received SET_LOCALITY message for connection",
                  __func__);
         resource_manager_set_locality (resmgr, locality);
-        Tpm2Response *response = tpm2_response_new_rc (conn, TPM2_RC_SUCCESS);
-        sink_enqueue (resmgr->sink, G_OBJECT (response));
-        g_object_unref (response);
         return TRUE;
     default:
         g_warning ("%s: Unknown control code: %d ... ignoring",
