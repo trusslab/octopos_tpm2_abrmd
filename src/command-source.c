@@ -269,7 +269,7 @@ control_command_process (GInputStream *istream,
 
     sink_enqueue (data->self->sink, G_OBJECT (msg));
     g_object_unref (msg);
-    g_object_unref (connection);
+    // g_object_unref (connection);
     
     return G_SOURCE_CONTINUE;
 control_fail:
