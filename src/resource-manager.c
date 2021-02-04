@@ -1760,7 +1760,6 @@ resource_manager_set_locality (ResourceManager *resource_manager,
     tpm2_lock(tpm2);
     tpm2_set_locality(tpm2, locality);
     tpm2_unlock(tpm2);
-    
     g_debug ("%s: done", __func__);
 }
 /**
