@@ -716,3 +716,9 @@ tpm2_get_command_attrs (Tpm2 *tpm2,
 
     return rc;
 }
+
+TSS2_RC
+tpm2_set_locality (Tpm2 *tpm2, uint8_t locality)
+{
+    return tcti_set_locality (tpm2->tcti, locality);
+}

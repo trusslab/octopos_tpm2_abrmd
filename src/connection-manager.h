@@ -23,6 +23,7 @@ typedef struct _ConnectionManager {
     GObject           parent_instance;
     pthread_mutex_t   mutex;
     GHashTable       *connection_from_istream_table;
+    GHashTable       *connection_from_sistream_table;
     GHashTable       *connection_from_id_table;
     guint             max_connections;
 } ConnectionManager;
@@ -41,6 +42,8 @@ gint           connection_manager_insert      (ConnectionManager  *manager,
 gint           connection_manager_remove      (ConnectionManager  *manager,
                                                Connection         *connection);
 Connection*    connection_manager_lookup_istream (ConnectionManager  *manager,
+                                                  GInputStream       *istream);
+Connection*    connection_manager_lookup_sistream (ConnectionManager  *manager,
                                                   GInputStream       *istream);
 Connection*    connection_manager_lookup_id   (ConnectionManager  *manager,
                                                gint64              id_in);

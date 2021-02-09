@@ -105,6 +105,11 @@ connection_manager_init (ConnectionManager *mgr)
                                g_direct_equal,
                                NULL,
                                NULL);
+    mgr->connection_from_sistream_table =
+        g_hash_table_new_full (g_direct_hash,
+                               g_direct_equal,
+                               NULL,
+                               NULL);
     mgr->connection_from_id_table =
         g_hash_table_new_full (g_int64_hash,
                                g_int64_equal,
@@ -123,6 +128,7 @@ connection_manager_dispose (GObject *obj)
         g_warning ("Error locking connection_manager mutex: %s",
                    strerror (errno));
     g_hash_table_unref (self->connection_from_istream_table);
+    g_hash_table_unref (self->connection_from_sistream_table);
     g_hash_table_unref (self->connection_from_id_table);
     ret = pthread_mutex_unlock (&self->mutex);
     if (ret != 0)
@@ -209,6 +215,9 @@ connection_manager_insert (ConnectionManager    *manager,
     g_hash_table_insert (manager->connection_from_istream_table,
                          connection_key_istream (connection),
                          connection);
+    g_hash_table_insert (manager->connection_from_sistream_table,
+                         g_io_stream_get_input_stream(connection_get_control_sstream (connection)),
+                         connection);
     g_hash_table_insert (manager->connection_from_id_table,
                          connection_key_id (connection),
                          connection);
@@ -238,6 +247,25 @@ connection_manager_lookup_istream (ConnectionManager *manager,
 
     pthread_mutex_lock (&manager->mutex);
     connection = g_hash_table_lookup (manager->connection_from_istream_table,
+                                      istream);
+    if (connection != NULL) {
+        g_object_ref (connection);
+    } else {
+        g_warning ("%s returned NULL connection", __func__);
+    }
+    pthread_mutex_unlock (&manager->mutex);
+
+    return connection;
+}
+
+Connection*
+connection_manager_lookup_sistream (ConnectionManager *manager,
+                                    GInputStream      *istream)
+{
+    Connection *connection;
+
+    pthread_mutex_lock (&manager->mutex);
+    connection = g_hash_table_lookup (manager->connection_from_sistream_table,
                                       istream);
     if (connection != NULL) {
         g_object_ref (connection);

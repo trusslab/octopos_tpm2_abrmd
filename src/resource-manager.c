@@ -239,6 +239,7 @@ resource_manager_load_session_from_handle (ResourceManager *resmgr,
         rc = tpm2_response_get_code (response);
         if (rc != TSS2_RC_SUCCESS) {
             flush_session (resmgr, session_entry);
+            goto out;
         }
     }
     if (will_flush) {
@@ -1167,7 +1168,6 @@ create_context_mapping_transient (ResourceManager  *resmgr,
     handle_map_insert (handle_map, vhandle, handle_entry);
     g_object_unref (handle_map);
     tpm2_response_set_handle (response, vhandle);
-    g_object_ref (handle_entry);
 }
 /*
  * This function after a Tpm2Command is sent to the TPM and:
@@ -1377,8 +1377,9 @@ gboolean
 resource_manager_process_control (ResourceManager *resmgr,
                                   ControlMessage *msg)
 {
-    ControlCode code = control_message_get_code (msg);
-    Connection *conn;
+    ControlCode   code = control_message_get_code (msg);
+    Connection   *conn;
+    guint8        locality;
 
     g_debug ("%s", __func__);
     switch (code) {
@@ -1391,6 +1392,13 @@ resource_manager_process_control (ResourceManager *resmgr,
                  __func__);
         resource_manager_remove_connection (resmgr, conn);
         sink_enqueue (resmgr->sink, G_OBJECT (msg));
+        return TRUE;
+    case SET_LOCALITY:
+        conn = CONNECTION (control_message_get_object (msg));
+        locality = control_message_get_locality (msg);
+        g_debug ("%s: received SET_LOCALITY message for connection",
+                 __func__);
+        resource_manager_set_locality (resmgr, locality);
         return TRUE;
     default:
         g_warning ("%s: Unknown control code: %d ... ignoring",
@@ -1741,6 +1749,17 @@ resource_manager_remove_connection (ResourceManager *resource_manager,
     session_list_foreach (resource_manager->session_list,
                           connection_close_session_callback,
                           &connection_close_data);
+    g_debug ("%s: done", __func__);
+}
+
+void
+resource_manager_set_locality (ResourceManager *resource_manager,
+                               guint8 locality)
+{
+    Tpm2 *tpm2 = resource_manager->tpm2;
+    tpm2_lock(tpm2);
+    tpm2_set_locality(tpm2, locality);
+    tpm2_unlock(tpm2);
     g_debug ("%s: done", __func__);
 }
 /**

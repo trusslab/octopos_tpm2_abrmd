@@ -99,6 +99,11 @@ gmain_data_cleanup (gmain_data_t *data)
     if (data->loop != NULL) {
         main_loop_quit (data->loop);
     }
+    if (data->tpm2) {
+        g_clear_object (&data->tpm2);
+    }
+
+    tabrmd_options_free(&data->options);
 }
 /*
  * This function initializes and configures all of the long-lived objects
@@ -206,7 +211,7 @@ init_thread_func (gpointer user_data)
     g_clear_object (&session_list);
     data->response_sink = response_sink_new ();
     g_object_unref (command_attrs);
-    g_object_unref (data->tpm2);
+    g_clear_object (&data->tpm2);
     /*
      * Wire up the TPM command processing pipeline. TPM command buffers
      * flow from the CommandSource, to the Tab then finally back to the
@@ -244,6 +249,7 @@ init_thread_func (gpointer user_data)
     return GINT_TO_POINTER (0);
 
 err_out:
+    g_mutex_unlock (&data->init_mutex);
     g_debug ("%s: calling gmain_data_cleanup", __func__);
     gmain_data_cleanup (data);
     return GINT_TO_POINTER (ret);

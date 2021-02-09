@@ -94,6 +94,11 @@ command_source_init (CommandSource *source)
                                g_direct_equal,
                                g_object_unref,
                                source_data_free);
+    source->control_to_source_data_map =
+        g_hash_table_new_full (g_direct_hash,
+                               g_direct_equal,
+                               g_object_unref,
+                               source_data_free);
 }
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -210,6 +215,12 @@ fail_out:
     if (buf != NULL) {
         g_free (buf);
     }
+    
+    uint8_t destroy[] = { UINT8_MAX };
+    GOutputStream *ostream = \
+        g_io_stream_get_output_stream (connection_get_control_cstream (connection));
+    write_all (ostream, destroy, sizeof(destroy));
+
     g_debug ("%s: removing connection from connection_manager", __func__);
     connection_manager_remove (data->self->connection_manager,
                                connection);
@@ -229,6 +240,43 @@ fail_out:
     g_hash_table_remove (data->self->istream_to_source_data_map, istream);
     return G_SOURCE_REMOVE;
 }
+
+gboolean
+control_command_process (GInputStream *istream,
+                         gpointer      user_data)
+{
+    source_data_t *data = (source_data_t*)user_data;
+    Connection    *connection;
+    uint8_t buf[1];
+    GError *error = NULL;
+
+    g_debug (__func__);
+    connection =
+        connection_manager_lookup_sistream (data->self->connection_manager,
+                                            istream);
+    if (connection == NULL) {
+        g_error ("%s: failed to get connection associated with sistream",
+                 __func__);
+    }
+    
+    g_input_stream_read (istream, buf, 1, NULL, &error);
+    guint8 locality = buf[0];
+    if (locality == UINT8_MAX) {
+        goto control_fail;
+    }
+    ControlMessage *msg =
+        control_message_new_with_locality (SET_LOCALITY, G_OBJECT (connection), locality);
+
+    sink_enqueue (data->self->sink, G_OBJECT (msg));
+    g_object_unref (msg);
+    // g_object_unref (connection);
+    
+    return G_SOURCE_CONTINUE;
+control_fail:
+    g_object_unref (connection);
+    g_hash_table_remove (data->self->control_to_source_data_map, istream);
+    return G_SOURCE_REMOVE;
+}
 /*
  * This is a callback function invoked by the ConnectionManager when a new
  * Connection object is added to it. It creates and sets up the GIO
@@ -239,9 +287,9 @@ command_source_on_new_connection (ConnectionManager   *connection_manager,
                                   Connection          *connection,
                                   CommandSource       *self)
 {
-    GIOStream *iostream;
-    GPollableInputStream *istream;
-    source_data_t *data;
+    GIOStream *iostream, *control_sstream;
+    GPollableInputStream *istream, *control_sistream;
+    source_data_t *data, *control_data;
     UNUSED_PARAM(connection_manager);
 
     g_info ("%s: adding new connection", __func__);
@@ -269,6 +317,21 @@ command_source_on_new_connection (ConnectionManager   *connection_manager,
      * the reference to the istream and the source_data_t pointer.
      */
     g_hash_table_insert (self->istream_to_source_data_map, istream, data);
+
+    control_sstream = connection_get_control_sstream (connection);
+    control_sistream = G_POLLABLE_INPUT_STREAM (g_io_stream_get_input_stream (control_sstream));
+    g_object_ref (control_sistream);
+    control_data = g_malloc0 (sizeof (source_data_t));
+    control_data->cancellable = g_cancellable_new ();
+    control_data->source = g_pollable_input_stream_create_source (control_sistream,
+                                                                  control_data->cancellable);
+    g_source_attach (control_data->source, self->main_context);
+    control_data->self = self;
+    g_source_set_callback (control_data->source,
+                           G_SOURCE_FUNC (control_command_process),
+                           control_data,
+                           NULL);
+    g_hash_table_insert (self->control_to_source_data_map, control_sistream, control_data);
 
     return 0;
 }
@@ -309,6 +372,12 @@ command_source_dispose (GObject *object) {
                               NULL);
     }
     g_clear_pointer (&self->istream_to_source_data_map, g_hash_table_unref);
+    if (self->control_to_source_data_map != NULL) {
+        g_hash_table_foreach (self->control_to_source_data_map,
+                              command_source_source_cancel,
+                              NULL);
+    }
+    g_clear_pointer (&self->control_to_source_data_map, g_hash_table_unref);
     if (self->main_loop != NULL && g_main_loop_is_running (self->main_loop)) {
         g_main_loop_quit (self->main_loop);
     }
