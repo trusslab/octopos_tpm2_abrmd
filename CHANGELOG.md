@@ -3,6 +3,28 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a CHANGELOG](http://keepachangelog.com/)
 
+### 2.4.0 - 2021-02-08
+### Added
+  - configure option --enable-asan which will cause the build to produce
+    ASAN enabled binaries.
+  - CI runs with clang enable asan for tests.
+  - Service start depends on systemd device unit: dev-tpm0.device.
+  - Testing support with swtpm.
+
+### Fixed
+  - Numerous memory leaks.
+  - udev settle service deprecation warnings.
+  - StandardOutput=syslog deprecation warnings.
+
+### Changed
+  - StandardOutput=syslog removed from systemd service file as syslog is
+    deprecated since systemd version 246.
+  - Requires tpm2-tss version 2.4.0 or greater for udev TAG=systemd rules.
+
+### Removed
+  - valgrind configure options.
+  - usage of udev settle service.
+
 ### 2.3.3 - 2020-08-10
 ### Fixed:
   - Fixed handle resource leak exhausting TPM resources.

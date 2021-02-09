@@ -71,6 +71,12 @@ TESTS_INTEGRATION = \
 
 TESTS_INTEGRATION_NOHW = test/integration/tcti-connect-multiple.int
 
+if ENABLE_ASAN
+ASAN_EXTRA_ENV := \
+    G_SLICE=always \
+    ASAN_OPTIONS=fast_unwind_on_malloc=0:malloc_context_size=30
+endif
+
 # empty init for these since they're manipulated by conditionals
 TESTS =
 noinst_LTLIBRARIES =
@@ -78,19 +84,17 @@ XFAIL_TESTS = \
     test/integration/start-auth-session.int
 TEST_EXTENSIONS = .int
 AM_TESTS_ENVIRONMENT = \
+    $(ASAN_EXTRA_ENV) \
     TEST_FUNC_LIB=$(srcdir)/scripts/int-test-funcs.sh \
     PATH=./src:$(PATH) \
     dbus-run-session
 INT_LOG_COMPILER = $(srcdir)/scripts/int-test-setup.sh
-INT_LOG_FLAGS = --tabrmd-tcti=$(TABRMD_TCTI)
+INT_LOG_FLAGS = --tabrmd-tcti=$(TABRMD_TCTI) $(ASAN_INT_LOG_FLAGS)
 
 if ENABLE_INTEGRATION
 noinst_LTLIBRARIES += $(libtest)
 TESTS += $(TESTS_INTEGRATION)
-if HWTPM
-TABRMD_TCTI = device
-else
-TABRMD_TCTI = mssim
+if !HWTPM
 TESTS += $(TESTS_INTEGRATION_NOHW)
 endif
 endif
@@ -181,10 +185,6 @@ endif # CODE_COVERAGE_ENABLED
 else # AUTOCONF_CODE_COVERAGE_2019_01_06
 @CODE_COVERAGE_RULES@
 endif # AUTOCONF_CODE_COVERAGE_2019_01_06
-
-@VALGRIND_CHECK_RULES@
-VALGRIND_G_DEBUG = fatal-criticals,gc-friendly
-VALGRIND_memcheck_FLAGS = --leak-check=full --show-leak-kinds=definite,indirect --track-origins=yes --error-exitcode=1
 
 # This is a hack required to ensure that BUILT_SOURCES are generated before
 # the file that requires them.
@@ -278,7 +278,10 @@ test_integration_libtest_la_SOURCES = \
 
 src_libtss2_tcti_tabrmd_la_LIBADD = $(GIO_LIBS) $(GLIB_LIBS) $(TSS2_MU_LIBS) \
     $(libutil) $(TSS2_TCTILDR_LIBS)
-src_libtss2_tcti_tabrmd_la_LDFLAGS = -fPIC -Wl,--no-undefined -Wl,-z,nodelete -Wl,--version-script=$(srcdir)/src/tcti-tabrmd.map
+if !ENABLE_ASAN
+UNDEFINED_SYMS := -Wl,--no-undefined
+endif
+src_libtss2_tcti_tabrmd_la_LDFLAGS = -fPIC $(UNDEFINED_SYMS) -Wl,-z,nodelete -Wl,--version-script=$(srcdir)/src/tcti-tabrmd.map
 src_libtss2_tcti_tabrmd_la_SOURCES = src/tcti-tabrmd.c src/tcti-tabrmd-priv.h $(srcdir)/src/tcti-tabrmd.map
 
 src_tpm2_abrmd_LDADD   = $(GIO_LIBS) $(GLIB_LIBS) $(PTHREAD_LIBS) \

@@ -123,6 +123,20 @@ tcti_init_from_opts (test_opts_t *options)
         return tcti_tabrmd_init (options->tcti_conf);
     }
 }
+
+void
+tcti_free_from_opts (test_opts_t *options,
+                     TSS2_TCTI_CONTEXT **tcti_context)
+{
+    if (options->tcti_filename != NULL) {
+        Tss2_TctiLdr_Finalize (tcti_context);
+    } else {
+        Tss2_Tcti_Finalize (*tcti_context);
+        free(*tcti_context);
+        *tcti_context = NULL;
+    }
+}
+
 /*
  * Teardown and free the resources associated with a SAPI context structure.
  * This includes tearing down the TCTI as well.

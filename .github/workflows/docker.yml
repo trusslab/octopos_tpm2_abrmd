@@ -1,0 +1,69 @@
+name: Linux Build Status
+on:
+  [push, pull_request]
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    if: "!contains(github.ref, 'coverity_scan')"
+    strategy:
+      matrix:
+        DOCKER_IMAGE: ["ubuntu-16.04", "ubuntu-18.04", "ubuntu-20.04", "fedora-32", "opensuse-leap" ]
+        TPM2TSS_BRANCH: ["master"]
+        CC: ["gcc", "clang"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - name: Launch Container
+        env:
+          DOCKER_IMAGE: "${{ matrix.DOCKER_IMAGE }}"
+          TPM2TSS_BRANCH: "${{ matrix.TPM2TSS_BRANCH }}"
+          CC: "${{ matrix.CC }}"
+        run: ./.ci/ci-runner.sh
+      - name: failure
+        if: ${{ failure() }}
+        run: find -name test-suite.log | xargs cat || true
+  multi-arch:
+    runs-on: ubuntu-latest
+    if: "!contains(github.ref, 'coverity_scan')"
+    strategy:
+      matrix:
+        ARCH: [
+          "ubuntu-20.04.arm32v7",
+          "ubuntu-20.04.arm64v8",
+          "fedora-32.ppc64le"
+        ]
+    steps:
+      - name: Setup QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install qemu binfmt-support qemu-user-static
+          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - name: Launch Container
+        env:
+          DOCKER_IMAGE: ${{ matrix.ARCH }}
+          TPM2TSS_BRANCH: master
+          CC: gcc
+          MAKE_TARGET: check
+        run: ./.ci/ci-runner.sh
+      - name: failure
+        if: ${{ failure() }}
+        run: find -name test-suite.log | xargs cat || true
+  coverage-test:
+    runs-on: ubuntu-latest
+    if: "!contains(github.ref, 'coverity_scan')"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - name: Launch Container
+        env:
+          ENABLE_COVERAGE: true
+          DOCKER_IMAGE: ubuntu-18.04
+          TPM2TSS_BRANCH: master
+          MAKE_TARGET: check
+          CC: gcc
+        run: ./.ci/ci-runner.sh
+      - name: failure
+        if: ${{ failure() }}
+        run: find -name test-suite.log | xargs cat || true

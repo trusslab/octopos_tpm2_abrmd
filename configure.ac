@@ -41,7 +41,7 @@ AC_SEARCH_LIBS([dlopen], [dl dld], [], [
 PKG_CHECK_MODULES([GIO], [gio-unix-2.0])
 PKG_CHECK_MODULES([GLIB], [glib-2.0])
 PKG_CHECK_MODULES([GOBJECT], [gobject-2.0])
-PKG_CHECK_MODULES([TSS2_SYS],[tss2-sys >= 2.0.0])
+PKG_CHECK_MODULES([TSS2_SYS],[tss2-sys >= 2.4.0])
 PKG_CHECK_MODULES([TSS2_MU],[tss2-mu])
 PKG_CHECK_MODULES([TSS2_TCTILDR],[tss2-tctildr])
 PKG_CHECK_MODULES([TSS2_RC],[tss2-rc])
@@ -67,12 +67,6 @@ m4_ifdef([_AX_CODE_COVERAGE_RULES],
          [AM_CONDITIONAL(AUTOCONF_CODE_COVERAGE_2019_01_06, [true])],
          [AM_CONDITIONAL(AUTOCONF_CODE_COVERAGE_2019_01_06, [false])])
 AX_ADD_AM_MACRO_STATIC([])
-
-# disable helgrind and drd, they hate GAsyncQueue
-AX_VALGRIND_DFLT([sgcheck], [off])
-AX_VALGRIND_DFLT([helgrind], [off])
-AX_VALGRIND_DFLT([drd], [off])
-AX_VALGRIND_CHECK
 
 # allow
 AC_ARG_ENABLE([dlclose],
@@ -181,10 +175,12 @@ AC_ARG_ENABLE([integration],
     [enable_integration=no])
 AS_IF([test "x$enable_integration" = "xyes"],
     [AS_IF([test "x$enable_test_hwtpm" = "xno"],
-        [AC_CHECK_PROG([tpm_server], [tpm_server], [yes], [no])
-         AS_IF([test "x$tpm_server" != "xyes"],
-             [AC_MSG_ERROR([Integration tests enabled but tpm_server not found, try setting PATH])],
-             [AC_MSG_NOTICE([Integration tests will be executed against the TPM2 simulator.])])
+        [AC_CHECK_PROG([swtpm], [swtpm], [yes], [no])
+         AC_CHECK_PROG([tpm_server], [tpm_server], [yes], [no])
+         AS_IF([test "$swtpm" = yes], [TABRMD_TCTI=swtpm],
+               [AS_IF([test "$tpm_server" = yes], [TABRMD_TCTI=mssim],
+                      [AC_MSG_ERROR([Integration tests require swtpm or tpm_server to be installed.])])])
+         AC_SUBST([TABRMD_TCTI])
          AS_IF([test "$HOSTOS" = "Linux"],
            [AC_CHECK_PROG(ss, [ss], [yes], [no])],
            [AC_CHECK_PROG(ss, [sockstat], [yes], [no])])
@@ -224,6 +220,24 @@ AS_IF([test "x$enable_defaultflags" = "xyes"],
       ADD_LINK_FLAG([-Wl,-z,now])
       ADD_LINK_FLAG([-Wl,-z,relro])
       ])
+
+AC_ARG_ENABLE([asan],
+              [AS_HELP_STRING([--enable-asan],
+                              [Configure an ASAN enabled build.])],
+              [enable_asan=$enableval],
+              [enable_asan=no])
+AS_IF([test "x$enable_asan" = "xyes"],
+      [
+      # preprocessor / compiler / linker flags
+      #   these macros are defined in m4/flags.m4
+      AS_IF([test "x$enable_debug" = "xno"],
+            [ADD_COMPILER_FLAG([-g])])
+      ADD_COMPILER_FLAG([-O0])
+      ADD_COMPILER_FLAG([-fsanitize=address])
+      ADD_COMPILER_FLAG([-fno-omit-frame-pointer])
+      ADD_LINK_FLAG([-fsanitize=address])
+      ])
+AM_CONDITIONAL([ENABLE_ASAN],[test "x$enable_asan" = "xyes"])
 
 AC_SUBST([PATH])
 

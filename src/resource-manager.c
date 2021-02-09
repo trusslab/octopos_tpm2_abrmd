@@ -239,6 +239,7 @@ resource_manager_load_session_from_handle (ResourceManager *resmgr,
         rc = tpm2_response_get_code (response);
         if (rc != TSS2_RC_SUCCESS) {
             flush_session (resmgr, session_entry);
+            goto out;
         }
     }
     if (will_flush) {
@@ -1167,7 +1168,6 @@ create_context_mapping_transient (ResourceManager  *resmgr,
     handle_map_insert (handle_map, vhandle, handle_entry);
     g_object_unref (handle_map);
     tpm2_response_set_handle (response, vhandle);
-    g_object_ref (handle_entry);
 }
 /*
  * This function after a Tpm2Command is sent to the TPM and:

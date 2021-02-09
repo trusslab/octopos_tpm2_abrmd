@@ -31,11 +31,9 @@ daemon_start ()
     local daemon_log_file="$3"
     local daemon_pid_file="$4"
     local daemon_env="$5"
-    local valgrind_bin="$6"
-    local valgrind_flags="$7"
 
     printf "starting daemon: %s\n  environment: %s\n  options: %s\n" "${daemon_bin}" "${daemon_env}" "${daemon_opts}"
-    env ${daemon_env} ${valgrind_bin} ${valgrind_flags} ${daemon_bin} ${daemon_opts} > ${daemon_log_file} 2>&1 &
+    env ${daemon_env} ${daemon_bin} ${daemon_opts} > ${daemon_log_file} 2>&1 &
     local ret=$?
     local pid=$!
     if [ ${ret} -ne 0 ]; then
@@ -68,8 +66,16 @@ simulator_start ()
     # simulator port is a random port between 1024 and 65535
 
     cd ${sim_tmp_dir}
-    daemon_start "${sim_bin}" "-port ${sim_port}" "${sim_log_file}" \
-        "${sim_pid_file}" ""
+    case "$sim_bin" in
+        *swtpm) daemon_start "$sim_bin" "socket --tpm2 --server port=$sim_port \
+                             --ctrl type=tcp,port=$((sim_port + 1)) \
+                             --flags not-need-init --tpmstate dir=$PWD \
+                             --seccomp action=none" \
+                             "$sim_log_file" "$sim_pid_file";;
+        *tpm_server) daemon_start "$sim_bin" "-port $sim_port" \
+                                  "$sim_log_file" "$sim_pid_file";;
+        *) echo "Unknown TPM simulator $sim_bin"; return 1;;
+    esac
     local ret=$?
     cd -
     return $ret
@@ -86,7 +92,7 @@ tabrmd_start ()
     local tabrmd_env="G_MESSAGES_DEBUG=all"
 
     daemon_start "${tabrmd_bin}" "--flush-all ${tabrmd_opts}" "${tabrmd_log_file}" \
-        "${tabrmd_pid_file}" "${tabrmd_env}" "${VALGRIND}" "${LOG_FLAGS}"
+        "${tabrmd_pid_file}" "${tabrmd_env}" "${LOG_FLAGS}"
 }
 # function to stop a running daemon
 # This function takes a single parameter: a file containing the PID of the
