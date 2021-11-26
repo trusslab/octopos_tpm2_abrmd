@@ -20,6 +20,8 @@ DEPENDS += " \
     pkgconfig-native \
     dbus \
     dbus-native \
+    dbus-glib \
+    dbus-glib-native \
 "
 
 CFLAGS_prepend = "-I ${S}/include"
