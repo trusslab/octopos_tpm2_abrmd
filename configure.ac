@@ -47,7 +47,7 @@ PKG_CHECK_MODULES([TSS2_TCTILDR],[tss2-tctildr])
 PKG_CHECK_MODULES([TSS2_RC],[tss2-rc])
 AC_ARG_VAR([GDBUS_CODEGEN],[The gdbus-codegen executable.])
 AC_CHECK_PROG([GDBUS_CODEGEN], [gdbus-codegen], [gdbus-codegen])
-AS_IF([test ! -x "$(which $GDBUS_CODEGEN)"],
+AS_IF([test x"$GDBUS_CODEGEN" != x"gdbus-codegen"],
       [AC_MSG_ERROR([*** gdbus-codegen is required to build tpm2-abrmd])])
 
 # Check OS and set library and compile flags accordingly
@@ -175,7 +175,8 @@ AC_ARG_ENABLE([integration],
     [enable_integration=no])
 AS_IF([test "x$enable_integration" = "xyes"],
     [AS_IF([test "x$enable_test_hwtpm" = "xno"],
-        [AC_CHECK_PROG([swtpm], [swtpm], [yes], [no])
+	[PATH_PROG([DBUS_RUN_SESSION], [dbus-run-session])
+         AC_CHECK_PROG([swtpm], [swtpm], [yes], [no])
          AC_CHECK_PROG([tpm_server], [tpm_server], [yes], [no])
          AS_IF([test "$swtpm" = yes], [TABRMD_TCTI=swtpm],
                [AS_IF([test "$tpm_server" = yes], [TABRMD_TCTI=mssim],
